@@ -298,6 +298,9 @@ DISABLED_PLUGINS = ()
 # Disables table borders (IRC only for now). You can reenable them switching that to  False
 # COMPACT_OUTPUT = True
 
+# Prevent ErrBot from saying anything if the command is unrecognized.
+# SUPPRESS_CMD_NOT_FOUND = False
+
 ##########################################################################
 # Redis configuration                                                    #
 ##########################################################################

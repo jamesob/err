@@ -50,6 +50,7 @@ def bot_config_defaults(config):
         'REDIS_HOST': None,
         'REDIS_PORT': None,
         'REDIS_DB': None,
+        'SUPPRESS_CMD_NOT_FOUND': False,
     }
 
     for (name, default) in name_to_default_val.items():
@@ -175,7 +176,7 @@ class ErrBot(Backend, BotPluginManager):
         log.debug("*** type = %s" % type_)
         log.debug("*** text = %s" % text)
 
-        surpress_cmd_not_found = False
+        suppress_cmd_not_found = self.bot_config.SUPPRESS_CMD_NOT_FOUND
 
         prefixed = False  # Keeps track whether text was prefixed with a bot prefix
         only_check_re_command = False  # Becomes true if text is determed to not be a regular command
@@ -206,7 +207,7 @@ class ErrBot(Backend, BotPluginManager):
             # In order to keep noise down we surpress messages about the command
             # not being found, because it's possible a plugin will trigger on what
             # was said with trigger_message.
-            surpress_cmd_not_found = True
+            suppress_cmd_not_found = True
         elif not text.startswith(self.bot_config.BOT_PREFIX):
             only_check_re_command = True
         if text.startswith(self.bot_config.BOT_PREFIX):
@@ -274,7 +275,7 @@ class ErrBot(Backend, BotPluginManager):
             self._process_command(mess, cmd, args, match=None)
         elif not only_check_re_command:
             log.debug("Command not found")
-            if surpress_cmd_not_found:
+            if suppress_cmd_not_found:
                 log.debug("Surpressing command not found feedback")
             else:
                 reply = self.unknown_command(mess, command, args)
