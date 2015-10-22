@@ -27,37 +27,34 @@ from .utils import (split_string_after,
 from .streaming import Tee
 from .plugin_manager import BotPluginManager
 from .templating import tenv
+from errbot import storage
 
 log = logging.getLogger(__name__)
 
 
 def bot_config_defaults(config):
-    if not hasattr(config, 'ACCESS_CONTROLS_DEFAULT'):
-        config.ACCESS_CONTROLS_DEFAULT = {}
-    if not hasattr(config, 'ACCESS_CONTROLS'):
-        config.ACCESS_CONTROLS = {}
-    if not hasattr(config, 'HIDE_RESTRICTED_COMMANDS'):
-        config.HIDE_RESTRICTED_COMMANDS = False
-    if not hasattr(config, 'HIDE_RESTRICTED_ACCESS'):
-        config.HIDE_RESTRICTED_ACCESS = False
-    if not hasattr(config, 'BOT_PREFIX_OPTIONAL_ON_CHAT'):
-        config.BOT_PREFIX_OPTIONAL_ON_CHAT = False
-    if not hasattr(config, 'BOT_ALT_PREFIXES'):
-        config.BOT_ALT_PREFIXES = ()
-    if not hasattr(config, 'BOT_ALT_PREFIX_SEPARATORS'):
-        config.BOT_ALT_PREFIX_SEPARATORS = ()
-    if not hasattr(config, 'BOT_ALT_PREFIX_CASEINSENSITIVE'):
-        config.BOT_ALT_PREFIX_CASEINSENSITIVE = False
-    if not hasattr(config, 'DIVERT_TO_PRIVATE'):
-        config.DIVERT_TO_PRIVATE = ()
-    if not hasattr(config, 'MESSAGE_SIZE_LIMIT'):
-        config.MESSAGE_SIZE_LIMIT = 10000  # Corresponds with what HipChat accepts
-    if not hasattr(config, 'GROUPCHAT_NICK_PREFIXED'):
-        config.GROUPCHAT_NICK_PREFIXED = False
-    if not hasattr(config, 'AUTOINSTALL_DEPS'):
-        config.AUTOINSTALL_DEPS = False
-    if not hasattr(config, 'DISABLED_PLUGINS'):
-        config.DISABLED_PLUGINS = ()
+    name_to_default_val = {
+        'ACCESS_CONTROLS_DEFAULT': {},
+        'ACCESS_CONTROLS': {},
+        'HIDE_RESTRICTED_COMMANDS': False,
+        'HIDE_RESTRICTED_ACCESS': False,
+        'BOT_PREFIX_OPTIONAL_ON_CHAT': False,
+        'BOT_ALT_PREFIXES': (),
+        'BOT_ALT_PREFIX_SEPARATORS': (),
+        'BOT_ALT_PREFIX_CASEINSENSITIVE': False,
+        'DIVERT_TO_PRIVATE': (),
+        'MESSAGE_SIZE_LIMIT': 10000,  # Corresponds with what HipChat accepts
+        'GROUPCHAT_NICK_PREFIXED': False,
+        'AUTOINSTALL_DEPS': False,
+        'DISABLED_PLUGINS': (),
+        'REDIS_HOST': None,
+        'REDIS_PORT': None,
+        'REDIS_DB': None,
+    }
+
+    for (name, default) in name_to_default_val.items():
+        if not hasattr(config, name):
+            setattr(config, name, default)
 
 
 class ErrBot(Backend, BotPluginManager):
@@ -68,7 +65,7 @@ class ErrBot(Backend, BotPluginManager):
     MSG_UNKNOWN_COMMAND = 'Unknown command: "%(command)s". '
     startup_time = datetime.now()
 
-    def __init__(self, bot_config):
+    def __init__(self, bot_config, get_redis_client=storage.get_redis_client):
         log.debug("ErrBot init.")
         super(ErrBot, self).__init__(bot_config)
         self._init_plugin_manager(bot_config)
@@ -86,6 +83,24 @@ class ErrBot(Backend, BotPluginManager):
             self.bot_alt_prefixes = tuple(prefix.lower() for prefix in bot_config.BOT_ALT_PREFIXES)
         else:
             self.bot_alt_prefixes = bot_config.BOT_ALT_PREFIXES
+
+        self.redis_client = None
+        has_cfg = lambda c: getattr(self.bot_config, c, None) is not None
+
+        if has_cfg('REDIS_HOST') and \
+                has_cfg('REDIS_PORT') and \
+                has_cfg('REDIS_DB'):
+            self.redis_client = get_redis_client(
+                self.bot_config.REDIS_HOST,
+                self.bot_config.REDIS_PORT,
+                self.bot_config.REDIS_DB)
+        else:
+            log.info(
+                "Couldn't enable redis; host/port/db: %s" %
+                (str(tuple(
+                    self.bot_config.REDIS_HOST,
+                    self.bot_config.REDIS_PORT,
+                    self.bot_config.REDIS_DB))))
 
     @property
     def all_commands(self):
@@ -405,6 +420,10 @@ class ErrBot(Backend, BotPluginManager):
         if classname in self.bot_config.DISABLED_PLUGINS:
             log.info("Not loading disabled plugin %r", classname)
             return
+
+        if self.redis_client and not instance_to_inject.redis:
+            instance_to_inject.redis = storage.RedisStore.for_plugin(
+                self.redis_client, instance_to_inject)
 
         for name, value in inspect.getmembers(instance_to_inject, inspect.ismethod):
             if getattr(value, '_err_command', False):
