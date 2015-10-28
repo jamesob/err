@@ -58,9 +58,7 @@ class Help(BotPlugin):
             ]))
         usage += '\n\n'
 
-        top = self._bot.top_of_help_message()
-        bottom = self._bot.bottom_of_help_message()
-        return ''.join(filter(None, [top, description, usage, bottom])).strip()
+        return ''.join(filter(None, [description, usage])).strip()
 
     @botcmd
     def help(self, mess, args):
@@ -68,9 +66,9 @@ class Help(BotPlugin):
 
         Automatically assigned to the "help" command."""
 
-        def may_access_command(cmd):
-            mess, _, _ = self._bot._process_command_filters(mess, cmd, None, True)
-            return mess is not None
+        def may_access_command(msg, cmd):
+            msg, _, _ = self._bot._process_command_filters(msg, cmd, None, True)
+            return msg is not None
 
         def get_name(named):
             return named.__name__.lower()
@@ -88,7 +86,7 @@ class Help(BotPlugin):
                 commands = cls_commands.get(cls, [])
 
                 if not (self.bot_config.HIDE_RESTRICTED_COMMANDS and
-                        not may_access_command(name)):
+                        not may_access_command(mess, name)):
                     commands.append((name, command))
                     cls_commands[cls] = commands
 
@@ -124,7 +122,7 @@ class Help(BotPlugin):
                 (name, command)
                 for (name, command) in commands
                 if not command._err_command_hidden and
-                (not self.bot_config.HIDE_RESTRICTED_COMMANDS or may_access_command(name))
+                (not self.bot_config.HIDE_RESTRICTED_COMMANDS or may_access_command(mess, name))
             ])
 
             for (name, command) in pairs:

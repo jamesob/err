@@ -75,6 +75,9 @@ class StoreMixin(MutableMapping):
         for i in self.shelf:
             yield i
 
+    def __contains__(self, x):
+        return x in self.shelf
+
 
 class RedisStore():
     """
