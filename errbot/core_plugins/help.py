@@ -136,8 +136,8 @@ class Help(BotPlugin):
             else:
                 usage = self.MSG_HELP_UNDEFINED_COMMAND
 
-        top = self._bot.top_of_help_message()
-        bottom = self._bot.bottom_of_help_message()
+        top = ''
+        bottom = ''
         return ''.join(filter(None, [top, description, usage, bottom]))
 
     def _cmd_help_line(self, name, command, show_doc=False):
